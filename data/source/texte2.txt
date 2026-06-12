@@ -1,0 +1,1 @@
+Le Big Data repose sur le stockage et le traitement de grandes quantités de données. Les données sont collectées, analysées et valorisées.

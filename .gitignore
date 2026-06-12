@@ -1,0 +1,18 @@
+# Dossiers de compilation
+target/
+project/target/
+project/project/
+
+# Dossiers IDE
+.idea/
+.bsp/
+
+# Données de streaming générées par Spark et le Producer
+data/destination/
+data/checkpoint/
+data/output/
+data/temp_output/
+
+# Logs et classes
+*.class
+*.log

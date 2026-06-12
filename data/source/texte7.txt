@@ -1,0 +1,1 @@
+Structured Streaming est une évolution de Spark Streaming. Structured Streaming utilise les DataFrames alors que Spark Streaming utilise les DStreams.

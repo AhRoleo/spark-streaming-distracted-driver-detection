@@ -1,0 +1,4 @@
+Bonjour, ceci est le fichier de test numéro 1.
+Il contient plusieurs lignes de texte brut.
+Spark va lire ce fichier et l'écrire dans le répertoire de sortie.
+Fin du fichier.
