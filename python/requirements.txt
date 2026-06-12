@@ -1,0 +1,11 @@
+# Training (Micro-service 2)
+# Run from: 2-Training/
+# Command:  jupyter notebook 2_Training.ipynb
+
+numpy>=1.23.0
+tensorflow>=2.15.0
+scikit-learn>=1.4.0
+matplotlib>=3.8.0
+seaborn>=0.13.0
+Pillow>=10.2.0
+tqdm>=4.66.0
