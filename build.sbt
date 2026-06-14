@@ -84,7 +84,11 @@ lazy val consumer = (project in file("modules/consumer"))
     name                := "consumer",
     Compile / mainClass := Some("consumer.StructuredStreamingConsumer"),
     // Le JVM forké s'exécute depuis la racine du projet pour trouver data/destination
-    run / baseDirectory := (ThisBuild / baseDirectory).value
+    run / baseDirectory := (ThisBuild / baseDirectory).value,
+    libraryDependencies ++= Seq(
+      "com.sksamuel.scrimage" % "scrimage-core"   % "4.0.38",
+      "com.microsoft.onnxruntime" % "onnxruntime" % "1.16.3"
+    )
   )
 
 // ─── Projet racine ───────────────────────────────────────────────────────────
@@ -97,3 +101,4 @@ lazy val root = (project in file("."))
     Compile / sources                   := Seq.empty,
     Compile / unmanagedSourceDirectories := Seq.empty
   )
+

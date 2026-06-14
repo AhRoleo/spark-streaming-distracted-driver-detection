@@ -97,32 +97,36 @@ consumer ──┘
 | Propriété | Description | Valeur par défaut |
 |---|---|---|
 | `consumer.input-dir` | Dossier surveillé en streaming | `data/destination` |
+| `consumer.output-dir` | Dossier de sortie des prédictions (CSV) | `data/output` |
 | `consumer.checkpoint-dir` | Dossier de checkpoint Spark (fault tolerance) | `data/checkpoint` |
+| `consumer.model-path` | Chemin vers le modèle ONNX pré-entraîné | `models/best_distracted_driver_cnn.onnx` |
 
 ---
 
 ## Lancement
 
-> **Note** : Toutes les commandes sont à exécuter depuis la racine du projet.
+> **Note** : Toutes les commandes Scala/SBT sont à exécuter dans votre terminal **WSL (Ubuntu)** depuis la racine du projet.
 
-### Compiler tous les modules
+### 1. Réinitialiser le sandbox (vide destination, checkpoint, output et copie les images de test)
 ```bash
-sbt compile
+bash scripts/clean.sh
 ```
 
-### Lancer le producer
-```bash
-sbt "producer/run"
-```
-
-### Lancer le consumer *(squelette — à implémenter)*
+### 2. Démarrer le consumer (Détection de distractions via modèle ONNX)
 ```bash
 sbt "consumer/run"
 ```
 
-### Réinitialiser le sandbox *(vider destination + checkpoint)*
+### 3. Démarrer le Dashboard Streamlit (Visualisation Web)
+Dans votre environnement Python (par exemple après avoir activé votre conda env `voice_rec_stable`) :
 ```bash
-bash scripts/clean.sh
+python -m streamlit run dashboard/app.py
+```
+
+### 4. Démarrer le producer (Simule le flux d'images)
+Dans un nouveau terminal :
+```bash
+sbt "producer/run"
 ```
 
 ### Compiler un seul module
@@ -185,9 +189,33 @@ Encapsule `FileUtil.copy` avec des paramètres explicites :
 - `deleteSource = false` → le fichier source est **conservé**
 - `overwrite = true` → écrase le fichier si déjà présent à destination
 
-### `consumer/StructuredStreamingConsumer.scala` — Squelette
-Point d'entrée du consumer. La logique Structured Streaming est à implémenter dans la méthode `run`.  
-Des exemples commentés (readStream, writeStream, awaitTermination) sont fournis comme guide.
+### `consumer/StructuredStreamingConsumer.scala` — Pipeline de classification d'images
+Point d'entrée du consumer. Il écoute les images entrantes (`png`, `jpg`, `jpeg`), les charge en mémoire, applique un resizing (64x64) et un aplatissement (RGB normalisé), puis les classe à l'aide du modèle ONNX (`best_distracted_driver_cnn.onnx`) en passant un tenseur de rang 4 `[1, 64, 64, 3]`. Les résultats sont cumulés de façon incrémentale dans `data/output/predictions.csv`.
+
+---
+
+## Détection de distractions et Dashboard Streamlit
+
+Le projet intègre une interface graphique interactive développée avec **Streamlit** pour visualiser les résultats en temps réel.
+
+### Fonctionnalités du Dashboard :
+- **KPIs en temps réel** : Affiche le nombre total d'images analysées et indique instantanément si le conducteur est attentif ou s'il y a une distraction détectée.
+- **Affichage en direct** : Affiche la dernière image captée et traitée par le modèle avec sa classe prédite.
+- **Statistiques de détections** : Un graphique dynamique en barres montre la distribution des prédictions à travers les 10 classes de distraction.
+- **Galerie d'historique** : Une grille visuelle montre les 8 dernières images analysées avec leurs prédictions respectives tout en bas de la page.
+- **Compatibilité multi-plateforme** : Le convertisseur de chemin traduit automatiquement les URI de fichiers Spark pour fonctionner de manière transparente sous Windows natif ou dans WSL.
+
+Les 10 classes détectées sont :
+- `c0` : Conduite normale
+- `c1` : SMS au volant (Droit)
+- `c2` : Téléphone (Droit)
+- `c3` : SMS au volant (Gauche)
+- `c4` : Téléphone (Gauche)
+- `c5` : Réglage Radio
+- `c6` : En train de Boire
+- `c7` : Se retourner derrière
+- `c8` : Maquillage
+- `c9` : Parler au passager
 
 ---
 

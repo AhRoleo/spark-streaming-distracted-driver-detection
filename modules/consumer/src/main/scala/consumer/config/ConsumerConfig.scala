@@ -11,7 +11,8 @@ import java.util.Properties
 case class ConsumerConfig(
   inputDir:      String,
   outputDir:     String,
-  checkpointDir: String
+  checkpointDir: String,
+  modelPath:     String
 )
 
 object ConsumerConfig {
@@ -27,7 +28,8 @@ object ConsumerConfig {
     ConsumerConfig(
       inputDir      = props.getProperty("consumer.input-dir").trim,
       outputDir     = props.getProperty("consumer.output-dir").trim,
-      checkpointDir = props.getProperty("consumer.checkpoint-dir").trim
+      checkpointDir = props.getProperty("consumer.checkpoint-dir").trim,
+      modelPath     = props.getProperty("consumer.model-path").trim
     )
   }
 }

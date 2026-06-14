@@ -147,13 +147,14 @@ wsl bash -c "cd '/mnt/c/Users/joane/Desktop/ESGI4/Spark Streaming/mini_test' && 
 
 ## 9. Résumé des commandes
 
-| Action | Commande WSL |
+| Action | Commande |
 |---|---|
-| Aller dans le projet | `cd '/mnt/c/Users/joane/Desktop/ESGI4/Spark Streaming/mini_test'` |
-| Compiler tout | `sbt compile` |
-| Compiler proprement | `sbt clean compile` |
-| Lancer le producer | `sbt "producer/run"` |
-| Lancer le consumer | `sbt "consumer/run"` |
-| Nettoyer destination | `bash scripts/clean.sh` |
-| Shell interactif | `sbt` |
-| Compiler un module | `sbt "producer/compile"` |
+| Aller dans le projet | `cd '/mnt/c/Users/joane/Desktop/ESGI4/Spark Streaming/mini_test'` (WSL) |
+| Compiler tout | `sbt compile` (WSL) |
+| Compiler proprement | `sbt clean compile` (WSL) |
+| Lancer le producer | `sbt "producer/run"` (WSL) |
+| Lancer le consumer | `sbt "consumer/run"` (WSL) |
+| Lancer le dashboard | `python -m streamlit run dashboard/app.py` (WSL / Windows) |
+| Nettoyer destination | `bash scripts/clean.sh` (WSL) |
+| Shell interactif | `sbt` (WSL) |
+| Compiler un module | `sbt "producer/compile"` (WSL) |
