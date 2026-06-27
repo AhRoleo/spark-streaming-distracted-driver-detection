@@ -12,7 +12,8 @@ case class ConsumerConfig(
   inputDir:      String,
   outputDir:     String,
   checkpointDir: String,
-  modelPath:     String
+  modelPath:     String,
+  modelUrl:      String
 )
 
 object ConsumerConfig {
@@ -29,7 +30,8 @@ object ConsumerConfig {
       inputDir      = props.getProperty("consumer.input-dir").trim,
       outputDir     = props.getProperty("consumer.output-dir").trim,
       checkpointDir = props.getProperty("consumer.checkpoint-dir").trim,
-      modelPath     = props.getProperty("consumer.model-path").trim
+      modelPath     = props.getProperty("consumer.model-path").trim,
+      modelUrl      = props.getProperty("consumer.model-url", "").trim
     )
   }
 }

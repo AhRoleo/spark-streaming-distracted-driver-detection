@@ -10,6 +10,9 @@ import org.apache.spark.sql.{DataFrame, functions => F}
 import org.apache.spark.sql.expressions.UserDefinedFunction
 import org.apache.spark.sql.types._
 
+import java.net.URL
+import java.nio.file.{Files, Paths, StandardCopyOption}
+
 object StructuredStreamingConsumer {
 
   // ─────────────────────────────────────────────
@@ -71,12 +74,37 @@ object StructuredStreamingConsumer {
     predicted
   }
 
+  // ─────────────────────────────────────────────────────────────────────────
+  // Téléchargement du modèle depuis le ML Service (READ arrow de l'archi)
+  // Si model-url est défini et accessible, le modèle est rapatrié via HTTP.
+  // Sinon, fallback sur le chemin local model-path.
+  // ─────────────────────────────────────────────────────────────────────────
+  def fetchModelFromService(modelUrl: String, localFallback: String): String = {
+    if (modelUrl.isEmpty) return localFallback
+    try {
+      val destPath = Paths.get("models", "fetched_model.onnx")
+      Files.createDirectories(destPath.getParent)
+      val conn = new URL(modelUrl).openConnection()
+      conn.setConnectTimeout(5000)
+      conn.setReadTimeout(30000)
+      val in = conn.getInputStream
+      Files.copy(in, destPath, StandardCopyOption.REPLACE_EXISTING)
+      in.close()
+      println(s"[ML Service] Modèle téléchargé depuis $modelUrl → ${destPath.toString}")
+      destPath.toString
+    } catch {
+      case e: Exception =>
+        println(s"[ML Service] Impossible de joindre $modelUrl (${e.getMessage}). Fallback local : $localFallback")
+        localFallback
+    }
+  }
+
   // ─────────────────────────────────────────────
   // Run principal
   // ─────────────────────────────────────────────
   def run(config: ConsumerConfig, spark: org.apache.spark.sql.SparkSession): Unit = {
 
-    val modelPath = config.modelPath  // à ajouter dans ConsumerConfig
+    val modelPath = fetchModelFromService(config.modelUrl, config.modelPath)
     val imgWidth  = 64
     val imgHeight = 64
 
