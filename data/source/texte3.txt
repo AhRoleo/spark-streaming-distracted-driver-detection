@@ -1,1 +1,0 @@
-Kafka est souvent utilisé avec Spark Streaming. Kafka produit des messages et Spark consomme ces messages pour effectuer des traitements en temps réel.

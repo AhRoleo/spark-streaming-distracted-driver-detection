@@ -1,1 +1,0 @@
-Le machine learning permet de créer des modèles prédictifs. Un modèle apprend à partir des données et améliore ses performances avec l'expérience.

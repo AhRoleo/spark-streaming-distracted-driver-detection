@@ -1,7 +1,0 @@
-Le conducteur démarre son véhicule et consulte rapidement son téléphone. Le système détecte une distraction du conducteur. La caméra observe le conducteur et transmet les données au système de surveillance.
-
-Le trafic est dense ce matin. Plusieurs véhicules circulent sur l'autoroute. Les capteurs enregistrent les données de vitesse et les données de position. Les données sont envoyées à Kafka puis traitées par Spark Streaming.
-
-Un conducteur attentif garde les yeux sur la route. Un conducteur distrait regarde son téléphone, mange ou parle avec un passager. Le modèle de machine learning classe les comportements du conducteur.
-
-Les données collectées sont stockées dans HDFS. Les données historiques permettent d'entraîner un modèle plus performant. Le système génère des alertes lorsque le niveau de distraction devient élevé.

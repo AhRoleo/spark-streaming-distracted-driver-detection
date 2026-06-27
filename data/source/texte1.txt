@@ -1,1 +1,0 @@
-Spark est un moteur de calcul distribué. Spark permet le traitement de données massives. Spark est rapide et Spark est utilisé dans de nombreux projets Big Data.

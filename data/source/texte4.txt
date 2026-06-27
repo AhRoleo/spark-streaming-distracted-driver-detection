@@ -1,1 +1,0 @@
-Les ingénieurs de données construisent des pipelines de données. Ces pipelines transportent les données depuis les sources jusqu'aux systèmes analytiques.

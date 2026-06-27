@@ -17,5 +17,14 @@ data/temp_output/
 *.class
 *.log
 
+# Modèle téléchargé dynamiquement par le consumer
+models/fetched_model.onnx
+
+# Dossier interne Claude Code
+.claude/
+
+# Cache Python
+__pycache__/
+*.pyc
 
 Gestion_Binary_en_Streaming.md
