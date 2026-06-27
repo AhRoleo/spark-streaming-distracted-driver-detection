@@ -16,7 +16,7 @@ On voit clairement les 4 microservices qui communiquent entre eux :
 
 ---
 
-## Ma contribution — Microservice ML Python
+## Microservice ML Python
 
 Dans la version de base du projet (branche `darky-stream`), le consumer Spark allait chercher le modèle ONNX **directement sur le disque dur** en local. C'est fonctionnel mais ça ne correspond pas vraiment à une architecture microservices réelle.
 
