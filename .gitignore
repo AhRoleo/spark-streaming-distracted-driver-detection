@@ -6,6 +6,7 @@ project/project/
 # Dossiers IDE
 .idea/
 .bsp/
+.claude/
 
 # Données de streaming générées par Spark et le Producer
 data/destination/
