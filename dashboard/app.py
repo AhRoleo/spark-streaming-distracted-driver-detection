@@ -1,5 +1,6 @@
 import streamlit as st
 import pandas as pd
+import glob
 import time
 import os
 import sys
@@ -73,12 +74,24 @@ def convert_spark_path(spark_path):
         
     return path
 
-# Chemin vers predictions.csv
-predictions_file = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data", "output", "predictions.csv")
+# Dossier de sortie Spark : le consumer écrit un ou plusieurs part-*.csv par micro-batch
+output_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data", "output")
+# Tri par date de modification pour préserver l'ordre chronologique des batches
+csv_files = sorted(
+    glob.glob(os.path.join(output_dir, "part-*.csv")),
+    key=os.path.getmtime
+)
 
-if os.path.exists(predictions_file):
+if csv_files:
     try:
-        df = pd.read_csv(predictions_file)
+        frames = []
+        for f in csv_files:
+            try:
+                frames.append(pd.read_csv(f))
+            except pd.errors.EmptyDataError:
+                # part vide (batch sans données), on l'ignore
+                pass
+        df = pd.concat(frames, ignore_index=True) if frames else pd.DataFrame()
         
         if not df.empty and 'image' in df.columns and 'prediction' in df.columns:
             # Conversion de la prédiction en entier
@@ -167,12 +180,12 @@ if os.path.exists(predictions_file):
                 st.plotly_chart(fig, use_container_width=True)
                 
         else:
-            st.info("predictions.csv est vide ou n'a pas les colonnes requises.")
+            st.info("Les fichiers CSV sont vides ou n'ont pas les colonnes requises ('image', 'prediction').")
             
     except Exception as e:
         st.warning(f"Erreur de lecture ou fichier partiellement écrit : {e}")
 else:
-    st.info("⏳ En attente de données... Aucun fichier trouvé dans `data/output/predictions.csv`.\n\nLancez le Consumer Spark et démarrez le Producer pour simuler le flux d'images.")
+    st.info("⏳ En attente de données... Aucun fichier `part-*.csv` trouvé dans `data/output`.\n\nLancez le Consumer Spark et démarrez le Producer pour simuler le flux d'images.")
 
 if auto_refresh:
     time.sleep(2)

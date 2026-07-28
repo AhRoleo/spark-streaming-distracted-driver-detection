@@ -65,11 +65,13 @@ sbt "producer/run"
 
 ---
 
-## 4. Lancer le consumer *(squelette à implémenter)*
+## 4. Lancer le consumer (pipeline images + ONNX)
 
 ```bash
 sbt "consumer/run"
 ```
+
+Le consumer écoute `data/destination/` en streaming, classe chaque image via le modèle ONNX et écrit les prédictions en `part-*.csv` dans `data/output/` (un ou plusieurs fichiers par micro-batch, mode append).
 
 ---
 

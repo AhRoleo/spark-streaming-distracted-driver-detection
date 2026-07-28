@@ -11,6 +11,22 @@ import org.apache.spark.sql.expressions.UserDefinedFunction
 import org.apache.spark.sql.types._
 import scala.collection.JavaConverters._
 
+/**
+ * Détient la session ONNX partagée de la JVM.
+ * Le lazy val garantit un seul chargement du modèle par JVM (driver ou executor),
+ * au lieu d'un rechargement à chaque image.
+ */
+object OnnxModel {
+  private var _modelPath: String = _
+
+  lazy val session: OrtSession = {
+    val env = OrtEnvironment.getEnvironment()
+    env.createSession(_modelPath)
+  }
+
+  def init(path: String): Unit = _modelPath = path
+}
+
 object StructuredStreamingConsumer {
 
   // ─────────────────────────────────────────────
@@ -34,12 +50,14 @@ object StructuredStreamingConsumer {
    * - Passage d'un tenseur de rang 2 ([1, size]) à un tenseur de rang 4 ([1, height, width, 3]).
    *   Le modèle de détection de distractions (best_distracted_driver_cnn.onnx) attend un format
    *   d'entrée NHWC (Batch, Height, Width, Channels) correspondant à l'architecture Keras d'origine.
-   * - Fermeture explicite des ressources ONNX Runtime (tensors, results, sessions) pour éviter
+   * - Fermeture explicite des ressources ONNX Runtime (tensors, results) pour éviter
    *   les fuites de mémoire (memory leaks) dans la mémoire native C++ (off-heap) à chaque prédiction.
+   * - La session est partagée via OnnxModel : chargée une seule fois par JVM, jamais fermée ici.
    */
   def predict(pixels: Array[Float], modelPath: String, width: Int, height: Int): String = {
+    OnnxModel.init(modelPath)
     val env     = OrtEnvironment.getEnvironment()
-    val session = env.createSession(modelPath)
+    val session = OnnxModel.session
 
     // 1. Reshape de la structure 1D plate vers un tableau 4D float[1][height][width][3]
     //    Le format attendu par le modèle ONNX est [Batch = 1, Height = 64, Width = 64, Channels = 3] (RGB).
@@ -65,10 +83,9 @@ object StructuredStreamingConsumer {
     val output      = results.get(0).getValue.asInstanceOf[Array[Array[Float]]](0)
     val predicted   = output.zipWithIndex.maxBy(_._1)._2.toString
 
-    // 4. Nettoyage et libération des ressources natives
+    // 4. Nettoyage des ressources natives du batch (la session partagée reste ouverte)
     inputTensor.close()
     results.close()
-    session.close()
     predicted
   }
 
@@ -77,9 +94,15 @@ object StructuredStreamingConsumer {
   // ─────────────────────────────────────────────
   def run(config: ConsumerConfig, spark: org.apache.spark.sql.SparkSession): Unit = {
 
-    val modelPath = config.modelPath  // à ajouter dans ConsumerConfig
     val imgWidth  = 64
     val imgHeight = 64
+
+    // Initialisation du modèle une seule fois côté driver
+    OnnxModel.init(config.modelPath)
+
+    // Broadcast du chemin du modèle : lu localement par chaque executor,
+    // au lieu d'être sérialisé dans la closure à chaque tâche Spark
+    val modelPathBroadcast = spark.sparkContext.broadcast(config.modelPath)
 
     // UDF resize + flatten
     val flattenUDF: UserDefinedFunction = F.udf(
@@ -88,7 +111,7 @@ object StructuredStreamingConsumer {
 
     // UDF prédiction ONNX
     val predictUDF: UserDefinedFunction = F.udf(
-      (pixels: Seq[Float]) => predict(pixels.toArray, modelPath, imgWidth, imgHeight)
+      (pixels: Seq[Float]) => predict(pixels.toArray, modelPathBroadcast.value, imgWidth, imgHeight)
     )
 
     // Schéma obligatoire pour le format binaryFile en streaming
@@ -124,61 +147,19 @@ object StructuredStreamingConsumer {
       .outputMode("append")
       .foreachBatch { (batchDF: DataFrame, batchId: Long) =>
         if (!batchDF.isEmpty) {
-          val conf     = batchDF.sparkSession.sparkContext.hadoopConfiguration
+          val conf = batchDF.sparkSession.sparkContext.hadoopConfiguration
           conf.set("fs.file.impl", classOf[org.apache.hadoop.fs.RawLocalFileSystem].getName) // Pour éviter les fichier .crc
           val fs       = FileSystem.get(conf)
-          val tempPath = new Path("data/temp_output")
           val finalDir = new Path(config.outputDir)
-          val finalFile = new Path(config.outputDir, "predictions.csv")
 
           if (!fs.exists(finalDir)) fs.mkdirs(finalDir)
 
-          // Écriture temporaire
-          batchDF.coalesce(1)
-            .write
-            .mode("overwrite")
+          // Écriture distribuée en mode append : chaque batch ajoute ses part-*.csv
+          // dans le dossier de sortie, sans fusion manuelle ni coalesce(1)
+          batchDF.write
+            .mode("append")
             .option("header", "true")
-            .csv(tempPath.toString)
-
-          // Trouver le part-*.csv généré
-          val csvFileOpt = Option(fs.listStatus(tempPath))
-            .flatMap(_.find(s => s.getPath.getName.endsWith(".csv") && s.getPath.getName.startsWith("part-")))
-
-          // Copier ou ajouter les prédictions au fichier final (sans écraser l'historique)
-          csvFileOpt.foreach { fileStatus =>
-            val srcPath = fileStatus.getPath
-            if (!fs.exists(finalFile)) {
-              // Si le fichier predictions.csv n'existe pas encore, on le copie directement (avec le header)
-              FileTransfer.copyFile(fs, srcPath, fs, finalFile, conf)
-            } else {
-              // 1. Lecture de l'historique existant via Scala Source
-              val existingLines = scala.io.Source
-                .fromInputStream(fs.open(finalFile))
-                .getLines()
-                .toVector
-
-              // 2. Lecture du nouveau batch — on saute le header (première ligne)
-              val newLines = scala.io.Source
-                .fromInputStream(fs.open(srcPath))
-                .getLines()
-                .drop(1)       // ← saute le header "image,prediction"
-                .toVector
-
-              // 3. Réécriture complète via l'API Hadoop (fs.create)
-              val out = fs.create(finalFile, true)  // true = overwrite
-              try {
-                (existingLines ++ newLines).foreach { line =>
-                  out.writeBytes(line + "\n")
-                }
-              } finally {
-                out.close()
-              }
-              // Si le fichier existe, on lit l'historique et on y ajoute les nouvelles lignes (sans leur header)
-            }
-          }
-
-          // Nettoyage temp
-          if (fs.exists(tempPath)) fs.delete(tempPath, true)
+            .csv(config.outputDir)
         }
         ()
       }

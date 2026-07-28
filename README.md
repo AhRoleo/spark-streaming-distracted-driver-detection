@@ -190,7 +190,12 @@ Encapsule `FileUtil.copy` avec des paramètres explicites :
 - `overwrite = true` → écrase le fichier si déjà présent à destination
 
 ### `consumer/StructuredStreamingConsumer.scala` — Pipeline de classification d'images
-Point d'entrée du consumer. Il écoute les images entrantes (`png`, `jpg`, `jpeg`), les charge en mémoire, applique un resizing (64x64) et un aplatissement (RGB normalisé), puis les classe à l'aide du modèle ONNX (`best_distracted_driver_cnn.onnx`) en passant un tenseur de rang 4 `[1, 64, 64, 3]`. Les résultats sont cumulés de façon incrémentale dans `data/output/predictions.csv`.
+Point d'entrée du consumer. Il écoute les images entrantes (`png`, `jpg`, `jpeg`), les charge en mémoire, applique un resizing (64x64) et un aplatissement (RGB normalisé), puis les classe à l'aide du modèle ONNX (`best_distracted_driver_cnn.onnx`) en passant un tenseur de rang 4 `[1, 64, 64, 3]`. Les résultats sont écrits de façon distribuée en mode `append` : chaque micro-batch ajoute un ou plusieurs fichiers `part-*.csv` dans `data/output/` (plus de `coalesce(1)` ni de fusion manuelle).
+
+Optimisations de scalabilité :
+- **Chargement unique du modèle ONNX** : l'objet `OnnxModel` expose la session via un `lazy val`, initialisé une seule fois par JVM (driver et chaque executor) au lieu d'un rechargement par image.
+- **Broadcast du chemin du modèle** : `config.modelPath` est broadcasté aux executors plutôt que sérialisé dans la closure de l'UDF à chaque tâche.
+- **Écriture distribuée** : le sink `foreachBatch` écrit directement en `mode("append")`, sans goulot d'étranglement sur un seul executor.
 
 ---
 
@@ -199,6 +204,8 @@ Point d'entrée du consumer. Il écoute les images entrantes (`png`, `jpg`, `jpe
 Le projet intègre une interface graphique interactive développée avec **Streamlit** pour visualiser les résultats en temps réel.
 
 ### Fonctionnalités du Dashboard :
+Le dashboard lit l'ensemble des fichiers `part-*.csv` produits par le consumer dans `data/output/` (triés par date de modification pour préserver l'ordre chronologique des batches) et les concatène en un seul DataFrame.
+
 - **KPIs en temps réel** : Affiche le nombre total d'images analysées et indique instantanément si le conducteur est attentif ou s'il y a une distraction détectée.
 - **Affichage en direct** : Affiche la dernière image captée et traitée par le modèle avec sa classe prédite.
 - **Statistiques de détections** : Un graphique dynamique en barres montre la distribution des prédictions à travers les 10 classes de distraction.
