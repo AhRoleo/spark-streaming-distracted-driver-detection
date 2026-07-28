@@ -111,7 +111,7 @@ if os.path.exists(predictions_file):
                 st.subheader("Dernière image traitée")
                 local_img_path = convert_spark_path(last_image_spark)
                 if local_img_path and os.path.exists(local_img_path):
-                    st.image(local_img_path, caption=f"Fichier : {os.path.basename(local_img_path)} — Classe prédite : {last_pred_class}", use_column_width=True)
+                    st.image(local_img_path, caption=f"Fichier : {os.path.basename(local_img_path)} — Classe prédite : {last_pred_class}", width='stretch')
                 else:
                     st.info(f"Image en attente d'affichage... (Chemin détecté : {local_img_path})")
             
@@ -146,7 +146,7 @@ if os.path.exists(predictions_file):
                     if local_path and os.path.exists(local_path):
                         status_emoji = "✅" if pred_int == 0 else "🚨"
                         short_desc = pred_label.split(': ')[1]
-                        st.image(local_path, use_column_width=True)
+                        st.image(local_path, width='stretch')
                         st.markdown(f"**{status_emoji} {short_desc}**")
                         st.caption(f"`{os.path.basename(local_path)}`")
                     else:
