@@ -38,3 +38,58 @@ object ProducerConfig {
     )
   }
 }
+
+
+//package producer.config
+//
+//import scala.io.Source
+//
+//case class ProducerConfig(
+//                           inputDir:     String,
+//                           outputDir:    String,
+//                           batchSize:    Int,
+//                           intervalTime: Long
+//                         )
+//
+//object ProducerConfig {
+//
+//
+//  // Valeurs par défaut si le fichier est absent
+//
+//  private val defaults = Map(
+//    "producer.input-dir"    -> "data/source",
+//    "producer.output-dir"   -> "data/destination",
+//    "producer.batch-size"   -> "1",
+//    "producer.interval-time"-> "5"
+//  )
+//
+//  def load(): ProducerConfig = {
+//    val props = Option(getClass.getClassLoader.getResourceAsStream("application.properties"))
+//      .map { stream =>
+//        // Fichier trouvé → parser les lignes clé=valeur
+//        Source.fromInputStream(stream)
+//          .getLines()
+//          .filter(line => line.contains("=") && !line.startsWith("#"))
+//          .map { line =>
+//            val Array(key, value) = line.split("=", 2)
+//            key.trim -> value.trim
+//          }
+//          .toMap
+//      }
+//      .getOrElse {
+//        // Fichier absent → avertissement + valeurs par défaut
+//        println("[WARN] application.properties introuvable — utilisation des valeurs par défaut.")
+//        Map.empty[String, String]
+//      }
+//
+//    // Pour chaque clé, on prend la valeur du fichier si elle existe, sinon le défaut
+//    def get(key: String): String = props.getOrElse(key, defaults(key))
+//
+//    ProducerConfig(
+//      inputDir     = get("producer.input-dir"),
+//      outputDir    = get("producer.output-dir"),
+//      batchSize    = get("producer.batch-size").toInt,
+//      intervalTime = get("producer.interval-time").toLong
+//    )
+//  }
+//}

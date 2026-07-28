@@ -5,6 +5,7 @@ import os
 import sys
 import re
 import urllib.parse
+import plotly.express as px
 
 st.set_page_config(page_title="Distracted Driver Detection Dashboard", layout="wide")
 
@@ -155,6 +156,15 @@ if os.path.exists(predictions_file):
             st.markdown("---")
             with st.expander("Historique complet des détections (Tableau brut)"):
                 st.dataframe(df[['image', 'class_name']], use_container_width=True)
+            
+            st.markdown("---")
+            with st.expander("Timeline des détections"):
+                st.line_chart(df['prediction_int'], use_container_width=True)
+
+            st.markdown("---")
+            with st.expander("Heatmap des détections"):
+                fig = px.pie(df, names='class_name', title="Répartition des distractions")
+                st.plotly_chart(fig, use_container_width=True)
                 
         else:
             st.info("predictions.csv est vide ou n'a pas les colonnes requises.")

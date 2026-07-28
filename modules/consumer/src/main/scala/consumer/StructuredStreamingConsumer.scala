@@ -9,6 +9,7 @@ import org.apache.hadoop.fs.{FileSystem, Path}
 import org.apache.spark.sql.{DataFrame, functions => F}
 import org.apache.spark.sql.expressions.UserDefinedFunction
 import org.apache.spark.sql.types._
+import scala.collection.JavaConverters._
 
 object StructuredStreamingConsumer {
 
@@ -57,8 +58,8 @@ object StructuredStreamingConsumer {
 
     // 2. Création du tenseur d'entrée et exécution de l'inférence
     val inputTensor = OnnxTensor.createTensor(env, input4D)
-    val inputName   = session.getInputNames.iterator().next()
-    val results     = session.run(java.util.Collections.singletonMap(inputName, inputTensor))
+    val inputName = session.getInputNames.asScala.head
+    val results = session.run(Map(inputName -> inputTensor).asJava)
 
     // 3. Extraction de la classe prédite (index de la probabilité maximale dans le vecteur de sortie de taille 10)
     val output      = results.get(0).getValue.asInstanceOf[Array[Array[Float]]](0)
@@ -124,6 +125,7 @@ object StructuredStreamingConsumer {
       .foreachBatch { (batchDF: DataFrame, batchId: Long) =>
         if (!batchDF.isEmpty) {
           val conf     = batchDF.sparkSession.sparkContext.hadoopConfiguration
+          conf.set("fs.file.impl", classOf[org.apache.hadoop.fs.RawLocalFileSystem].getName) // Pour éviter les fichier .crc
           val fs       = FileSystem.get(conf)
           val tempPath = new Path("data/temp_output")
           val finalDir = new Path(config.outputDir)
@@ -149,44 +151,29 @@ object StructuredStreamingConsumer {
               // Si le fichier predictions.csv n'existe pas encore, on le copie directement (avec le header)
               FileTransfer.copyFile(fs, srcPath, fs, finalFile, conf)
             } else {
-              // Si le fichier existe, on lit l'historique et on y ajoute les nouvelles lignes (sans leur header)
-              import java.io.{BufferedReader, InputStreamReader, PrintWriter}
-              
-              // 1. Lecture de l'historique existant dans predictions.csv
-              val existingLines = scala.collection.mutable.Buffer[String]()
-              val inExisting = new BufferedReader(new InputStreamReader(fs.open(finalFile), "UTF-8"))
-              try {
-                var line = inExisting.readLine()
-                while (line != null) {
-                  existingLines += line
-                  line = inExisting.readLine()
-                }
-              } finally {
-                inExisting.close()
-              }
+              // 1. Lecture de l'historique existant via Scala Source
+              val existingLines = scala.io.Source
+                .fromInputStream(fs.open(finalFile))
+                .getLines()
+                .toVector
 
-              // 2. Lecture du nouveau batch (saut de la première ligne qui contient le header "image,prediction")
-              val newLines = scala.collection.mutable.Buffer[String]()
-              val inNew = new BufferedReader(new InputStreamReader(fs.open(srcPath), "UTF-8"))
-              try {
-                val header = inNew.readLine() // Saut du header
-                var line = inNew.readLine()
-                while (line != null) {
-                  newLines += line
-                  line = inNew.readLine()
-                }
-              } finally {
-                inNew.close()
-              }
+              // 2. Lecture du nouveau batch — on saute le header (première ligne)
+              val newLines = scala.io.Source
+                .fromInputStream(fs.open(srcPath))
+                .getLines()
+                .drop(1)       // ← saute le header "image,prediction"
+                .toVector
 
-              // 3. Réécriture de l'ensemble (historique + nouvelles lignes) dans predictions.csv
-              val out = new PrintWriter(fs.create(finalFile, true))
+              // 3. Réécriture complète via l'API Hadoop (fs.create)
+              val out = fs.create(finalFile, true)  // true = overwrite
               try {
-                existingLines.foreach(out.println)
-                newLines.foreach(out.println)
+                (existingLines ++ newLines).foreach { line =>
+                  out.writeBytes(line + "\n")
+                }
               } finally {
                 out.close()
               }
+              // Si le fichier existe, on lit l'historique et on y ajoute les nouvelles lignes (sans leur header)
             }
           }
 
