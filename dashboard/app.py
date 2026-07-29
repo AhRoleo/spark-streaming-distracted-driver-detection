@@ -10,7 +10,7 @@ import plotly.express as px
 
 st.set_page_config(page_title="Distracted Driver Detection Dashboard", layout="wide")
 
-st.title("👁️ Real-time Distracted Driver Detection Dashboard")
+st.title("Real-time Distracted Driver Detection Dashboard")
 st.markdown("---")
 
 # Configuration de rafraîchissement
@@ -169,10 +169,43 @@ if csv_files:
             st.markdown("---")
             with st.expander("Historique complet des détections (Tableau brut)"):
                 st.dataframe(df[['image', 'class_name']], use_container_width=True)
-            
+
             st.markdown("---")
-            with st.expander("Timeline des détections"):
-                st.line_chart(df['prediction_int'], use_container_width=True)
+            with st.expander("Performances de traitement (temps par batch / par image)"):
+                metrics_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data", "metrics")
+                metrics_files = sorted(
+                    glob.glob(os.path.join(metrics_dir, "part-*.csv")),
+                    key=os.path.getmtime
+                )
+                if metrics_files:
+                    m_frames = []
+                    for f in metrics_files:
+                        try:
+                            m_frames.append(pd.read_csv(f))
+                        except pd.errors.EmptyDataError:
+                            pass
+                    if m_frames:
+                        mdf = pd.concat(m_frames, ignore_index=True).sort_values("batch_id")
+
+                        # KPI de performance
+                        p1, p2, p3 = st.columns(3)
+                        p1.metric("Temps moyen / batch", f"{mdf['duration_ms'].mean():,.0f} ms")
+                        p2.metric("Temps moyen / image", f"{mdf['ms_per_image'].mean():,.0f} ms")
+                        p3.metric("Batches traités", f"{len(mdf):,}")
+
+                        # Évolution du temps de traitement par batch
+                        st.bar_chart(data=mdf, x='batch_id', y='duration_ms', use_container_width=True)
+                        st.caption("Durée de traitement (ms) par batch — inclut l'inférence ONNX et l'écriture CSV.")
+
+                        st.dataframe(mdf, use_container_width=True)
+                    else:
+                        st.info("Fichiers de métriques vides pour le moment.")
+                else:
+                    st.info("Aucune métrique trouvée dans `data/metrics`. Relancez le consumer (version instrumentée) puis le producer.")
+
+#             st.markdown("---")
+#             with st.expander("Timeline des détections"):
+#                 st.line_chart(df['prediction_int'], use_container_width=True)
 
             st.markdown("---")
             with st.expander("Heatmap des détections"):

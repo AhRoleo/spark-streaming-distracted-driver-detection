@@ -134,12 +134,32 @@ object StructuredStreamingConsumer {
 
           if (!fs.exists(finalDir)) fs.mkdirs(finalDir)
 
+          // Mesure du temps de traitement du batch (inférence ONNX + écriture).
+          val startMs = System.currentTimeMillis()
+          batchDF.persist()
+          val numImages = batchDF.count()
+
           // Écriture distribuée en mode append : chaque batch ajoute ses part-*.csv
           // dans le dossier de sortie, sans fusion manuelle ni coalesce(1)
           batchDF.write
             .mode("append")
             .option("header", "true")
             .csv(config.outputDir)
+
+          batchDF.unpersist()
+          val durationMs = System.currentTimeMillis() - startMs
+
+          // Métriques de performance par batch, dans data/metrics (séparé des prédictions)
+          val metricsDir = new Path(finalDir.getParent, "metrics").toString
+          val spark = batchDF.sparkSession
+          import spark.implicits._
+          Seq((batchId, numImages, durationMs, durationMs.toDouble / numImages))
+            .toDF("batch_id", "num_images", "duration_ms", "ms_per_image")
+            .coalesce(1)
+            .write
+            .mode("append")
+            .option("header", "true")
+            .csv(metricsDir)
         }
         ()
       }
