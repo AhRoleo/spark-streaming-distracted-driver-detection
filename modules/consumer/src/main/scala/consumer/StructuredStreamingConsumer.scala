@@ -14,7 +14,6 @@ import scala.collection.JavaConverters._
 /**
  * Détient la session ONNX partagée de la JVM.
  * Le lazy val garantit un seul chargement du modèle par JVM (driver ou executor),
- * au lieu d'un rechargement à chaque image.
  */
 object OnnxModel {
   private var _modelPath: String = _
@@ -29,9 +28,8 @@ object OnnxModel {
 
 object StructuredStreamingConsumer {
 
-  // ─────────────────────────────────────────────
+
   // Resize + Flatten d'une image depuis ses bytes
-  // ─────────────────────────────────────────────
   def resizeAndFlatten(bytes: Array[Byte], width: Int, height: Int): Array[Float] = {
     val image   = ImmutableImage.loader().fromBytes(bytes)
     val resized = image.scaleTo(width, height)
@@ -40,20 +38,8 @@ object StructuredStreamingConsumer {
     }
   }
 
-  // ─────────────────────────────────────────────
   // Prédiction ONNX depuis un vecteur de pixels
-  // ─────────────────────────────────────────────
-  /**
-   * Effectue la prédiction ONNX à partir d'un vecteur plat de pixels normalisés.
-   * 
-   * MODIFICATIONS APPORTÉES :
-   * - Passage d'un tenseur de rang 2 ([1, size]) à un tenseur de rang 4 ([1, height, width, 3]).
-   *   Le modèle de détection de distractions (best_distracted_driver_cnn.onnx) attend un format
-   *   d'entrée NHWC (Batch, Height, Width, Channels) correspondant à l'architecture Keras d'origine.
-   * - Fermeture explicite des ressources ONNX Runtime (tensors, results) pour éviter
-   *   les fuites de mémoire (memory leaks) dans la mémoire native C++ (off-heap) à chaque prédiction.
-   * - La session est partagée via OnnxModel : chargée une seule fois par JVM, jamais fermée ici.
-   */
+
   def predict(pixels: Array[Float], modelPath: String, width: Int, height: Int): String = {
     OnnxModel.init(modelPath)
     val env     = OrtEnvironment.getEnvironment()
@@ -89,9 +75,7 @@ object StructuredStreamingConsumer {
     predicted
   }
 
-  // ─────────────────────────────────────────────
   // Run principal
-  // ─────────────────────────────────────────────
   def run(config: ConsumerConfig, spark: org.apache.spark.sql.SparkSession): Unit = {
 
     val imgWidth  = 64
@@ -114,11 +98,7 @@ object StructuredStreamingConsumer {
       (pixels: Seq[Float]) => predict(pixels.toArray, modelPathBroadcast.value, imgWidth, imgHeight)
     )
 
-    // Schéma obligatoire pour le format binaryFile en streaming
-    // MODIFICATIONS APPORTÉES :
-    // - Définition explicite d'un schéma structuré pour les sources en streaming de type binaryFile.
-    //   Par défaut, Spark Structured Streaming requiert la spécification d'un schéma (ou l'activation 
-    //   de l'inférence automatique globale) pour éviter une exception de type IllegalArgumentException.
+    // Schéma des images
     val imageSchema = StructType(Seq(
       StructField("path", StringType, nullable = true),
       StructField("modificationTime", TimestampType, nullable = true),
