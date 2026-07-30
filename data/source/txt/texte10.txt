@@ -1,0 +1,1 @@
+Python est souvent utilisé avec Spark. Python offre une syntaxe simple tandis que Spark apporte la puissance du calcul distribué.

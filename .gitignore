@@ -1,6 +1,22 @@
+# Dossiers de compilation
+target/
+project/target/
+project/project/
+
+# Dossiers IDE
+.idea/
+.bsp/
+.claude/
+
+# Données de streaming générées par Spark et le Producer
+data/destination/
+data/checkpoint/
+data/output/
+data/temp_output/
+
+# Logs et classes
 *.class
-*.tasty
 *.log
 
-# virtual machine crash logs, see http://www.java.com/en/download/help/error_hotspot.xml
-hs_err_pid*
+
+Gestion_Binary_en_Streaming.md

@@ -1,0 +1,3 @@
+Deuxième fichier de test.
+Données simulées pour l'initiation au streaming.
+Chaque fichier déposé dans input/ sera traité au prochain cycle de polling.

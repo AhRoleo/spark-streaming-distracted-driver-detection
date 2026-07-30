@@ -1,0 +1,1 @@
+Hadoop fournit un système de stockage distribué. HDFS stocke les données tandis que YARN gère les ressources du cluster.
